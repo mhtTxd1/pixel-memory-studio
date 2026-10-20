@@ -4,7 +4,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 root=Path(__file__).resolve().parents[1]
 destination=root.parent/'pixel-avatar-portable.zip'
-files=['pyproject.toml','README.md','MEMORY.md','PROVENANCE.md','VALIDATION.md','requirements.lock.txt',
+files=['pyproject.toml','README.md','MEMORY.md','AGENTS.md','LLM_GUIDE.md','PROVENANCE.md','VALIDATION.md','requirements.lock.txt',
        '.env.example','.gitignore','.dockerignore','Dockerfile','compose.yaml']
 with ZipFile(destination,'w',ZIP_DEFLATED) as archive:
     for name in files:

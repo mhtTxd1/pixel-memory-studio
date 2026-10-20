@@ -1,5 +1,7 @@
 # 情侣网站微像素工具包 · 人物、背景与八秒视频
 
+**交给其他 LLM：先读 [AGENTS.md](AGENTS.md) 与 [LLM_GUIDE.md](LLM_GUIDE.md)。** 后者包含架构、状态机、代码入口、调用示例、收费边界和排错流程。背景/视频详细用法见 [MEMORY.md](MEMORY.md)。
+
 ## 在另一台电脑使用
 
 此仓库包含两个配套模块：`pixel-avatar`（人物生成）和 `pixel-memory`（背景生成与视频合成）。推荐 Python 3.12。
@@ -34,7 +36,7 @@ pip install --no-deps -e .
 ## 快速启动（Python 3.11+）
 
 ```powershell
-cd pixel-avatar
+# 先进入克隆后的 pixel-memory-studio 目录，或 ZIP 解压后的 pixel-avatar 目录
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e ".[test]"
