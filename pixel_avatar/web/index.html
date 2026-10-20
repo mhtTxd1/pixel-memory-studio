@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>像素小人 · 生成工作台</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#28372f;background:#f4f0e8}body{max-width:1040px;margin:48px auto;padding:0 24px}h1{font-size:38px;letter-spacing:-1px;margin-bottom:12px}p{line-height:1.8;color:#617067}.card{background:#fffdf7;border:1px solid #deded0;border-radius:20px;padding:24px;margin:20px 0}label{display:block;margin:16px 0 8px;font-size:14px}input,textarea,select,button{font:inherit;border:1px solid #ccd2c7;border-radius:9px;padding:10px;box-sizing:border-box}input:not([type=file]),textarea{width:100%}textarea{height:76px}button{background:#315b47;color:white;cursor:pointer;margin:8px 8px 0 0}button:disabled{opacity:.45;cursor:wait}.muted{font-size:13px;color:#68776e}#preview{max-width:100%;image-rendering:pixelated;background:repeating-conic-gradient(#ddd 0% 25%,#fafafa 0% 50%) 0/24px 24px}#status{white-space:pre-wrap;overflow-wrap:anywhere}canvas{width:288px;height:312px;background:#eee8da;border-radius:12px}.row{display:flex;gap:24px;flex-wrap:wrap}.row>div{flex:1;min-width:240px}#error{color:#a13e39}a{color:#315b47}
+</style>
+<body><div class="muted">COUPLE PIXEL AVATAR / 开发者工作台 · <a href="/memory">背景与八秒视频 →</a></div><h1>把熟悉的样子，变成像素小人。</h1>
+<p>每次上传同一个人的照片。保留发型、衣着和表情特征，生成简单动作与 16 个视线方向。两个人分别创建任务，再在你的网站里一起播放。</p>
+<section class="card"><label>服务访问令牌（仅保存在当前页面内存）</label><input id="token" type="password" autocomplete="off" placeholder="AVATAR_SERVICE_TOKEN">
+<div class="row"><div><label>人物名称</label><input id="name" value="我的小人"><label>参考照片 · 1–4 张</label><input id="photos" type="file" accept="image/png,image/jpeg,image/webp" multiple></div>
+<div><label>像素程度</label><select id="block"><option value="2">轻像素 · 保留五官细节</option><option value="4">明显像素 · 复古游戏感</option><option value="1">仅使用模型像素风</option></select><label>保留的细节</label><textarea id="notes" placeholder="例如：齐肩黑发、粉色泡泡袖裙、白鞋；自然温柔的神态"></textarea></div></div>
+<button id="create">创建任务（暂不生成）</button></section>
+<section class="card"><label>任务 ID · 可恢复另一台主机迁移过来的任务</label><input id="job" placeholder="创建后自动填写"><button id="refresh">读取状态</button><button id="run">生成 / 继续（调用模型）</button><p id="status">尚未创建任务。</p><p id="error" role="alert"></p>
+<img id="preview" hidden alt="当前阶段检查图"><br><img id="motion" hidden alt="当前动作循环预览"><div id="review" hidden><p id="checklist"></p><label>检查记录 / 重试修改意见</label><textarea id="reviewNote" placeholder="说明人物一致性、动作和方向是否正确；重试时写明要改哪里"></textarea><button id="approve">通过当前阶段</button><button id="retry">重置当前组</button></div></section>
+<section class="card" id="result" hidden><h2>动画预览</h2><p class="muted">选择动作播放；鼠标移到人物周围可检查视线，移出后恢复动作。</p><select id="animation"></select><br><canvas id="canvas"></canvas><p><button id="downloadPng">下载精灵图</button><button id="downloadJson">下载配置</button></p></section>
+<script type="module">
+import {AvatarPlayer} from '/player.js';
+const $=id=>document.getElementById(id); let state,player,previewUrl,motionUrl;
+const headers=()=>({Authorization:'Bearer '+$('token').value});
+const base=()=>'/v1/avatars/'+encodeURIComponent($('job').value.trim());
+async function api(url,options={}) {const r=await fetch(url,{...options,headers:{...headers(),...options.headers}});if(!r.ok){let e=await r.json();throw Error(e.detail||r.statusText);}return r;}
+async function json(url,options){return (await api(url,options)).json();}
+async function post(action,body){return json(base()+'/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+async function file(name){return (await api(base()+'/files/'+name)).blob();}
+async function refresh(){
+ state=await json(base());$('status').textContent=`${state.name} · ${state.status}${state.active?'（处理中）':''}\n当前阶段：${state.current||'未开始'}\n通过：${Object.values(state.stages).filter(x=>x.status==='approved').length}/13\n${state.error||''}`;
+ $('run').disabled=state.active||['needs_review','ready'].includes(state.status);
+ $('review').hidden=!['needs_review','failed','ready'].includes(state.status);
+ $('approve').hidden=state.status!=='needs_review';
+ $('result').hidden=!['final'].includes(state.review)&&state.status!=='ready';
+ $('motion').hidden=true;
+ if(state.status==='needs_review'){
+  const stage=state.review;const blob=await file(stage==='final'?'contact-sheet.png':stage+'.png');
+  if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=URL.createObjectURL(blob);$('preview').src=previewUrl;$('preview').hidden=false;
+  if(!['base','cardinals','look-row-9','look-row-10','final'].includes(stage)){if(motionUrl)URL.revokeObjectURL(motionUrl);motionUrl=URL.createObjectURL(await file(stage+'.gif'));$('motion').src=motionUrl;$('motion').hidden=false;}
+  $('checklist').textContent=stage.includes('look')||stage==='cardinals'?'检查：0°向上、90°向屏幕右、180°向下、270°向屏幕左；中间方向连续。注意头部变化，不能靠整个人旋转模拟。':'检查：人物五官、发型与服装一致；每帧完整，无串帧、裁切或多余背景；动作变化自然。';
+ }else {$('preview').hidden=true;$('checklist').textContent=state.status==='failed'?'生成失败：可先修复密钥或网络后继续；如需重画，请填写修改意见并重置当前组。':'需要修改已完成素材时，可填写修改意见并重置指定组。';}
+ if(!$('result').hidden)await playback();else{player?.destroy();player=null;}
+}
+async function playback(){
+ const m=await (await api(base()+'/files/avatar.json')).json();const url=URL.createObjectURL(await file('spritesheet.png'));
+ try{const im=new Image();im.src=url;await im.decode();player?.destroy();player=new AvatarPlayer($('canvas'),im,m);$('animation').replaceChildren(...Object.keys(m.animations).map(s=>new Option(s,s)));}finally{URL.revokeObjectURL(url);}
+}
+async function guarded(fn){$('error').textContent='';try{await fn();}catch(e){$('error').textContent=e.message;}}
+$('create').onclick=()=>guarded(async()=>{const f=new FormData();for(const p of $('photos').files)f.append('photos',p);f.append('name',$('name').value);f.append('notes',$('notes').value);f.append('pixel_block',$('block').value);const j=await json('/v1/avatars',{method:'POST',body:f});$('job').value=j.id;await refresh();});
+$('refresh').onclick=()=>guarded(refresh);
+$('run').onclick=()=>guarded(async()=>{await post('run');await refresh();});
+$('approve').onclick=()=>guarded(async()=>{await post('approve',{stage:state.review,note:$('reviewNote').value});$('reviewNote').value='';await refresh();});
+$('retry').onclick=()=>guarded(async()=>{let stage=state.review;if(stage==='final'||['failed','ready'].includes(state.status))stage=prompt('输入需要重试的组名，例如 waving 或 look-row-9',state.current==='final'?'look-row-9':state.current);if(!stage)return;await post('retry',{stage,note:$('reviewNote').value});await refresh();});
+$('animation').onchange=()=>player?.play($('animation').value);
+$('canvas').onpointermove=e=>{const b=e.currentTarget.getBoundingClientRect();player?.lookAt(e.clientX-b.left-b.width/2,e.clientY-b.top-b.height/2);};$('canvas').onpointerleave=()=>player?.neutral();
+for(const [id,name] of [['downloadPng','spritesheet.png'],['downloadJson','avatar.json']])$(id).onclick=()=>guarded(async()=>{const u=URL.createObjectURL(await file(name));const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);});
+setInterval(()=>{if(state?.active)guarded(refresh);},4000);
+</script></body></html>

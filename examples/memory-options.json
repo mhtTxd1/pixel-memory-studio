@@ -1,0 +1,17 @@
+{
+  "duration": 8,
+  "fps": 24,
+  "caption": "今天，又一起走过了这条小路。",
+  "tracks": [
+    [
+      {"start": 0, "end": 3, "action": "running-right", "x": 0.2, "to_x": 0.4},
+      {"start": 3, "end": 6, "action": "waving", "x": 0.4},
+      {"start": 6, "end": 8, "action": "idle", "x": 0.4, "gaze": 4}
+    ],
+    [
+      {"start": 0, "end": 3, "action": "running-left", "x": 0.8, "to_x": 0.6},
+      {"start": 3, "end": 6, "action": "jumping", "x": 0.6},
+      {"start": 6, "end": 8, "action": "idle", "x": 0.6, "gaze": 12}
+    ]
+  ]
+}
